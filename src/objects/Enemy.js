@@ -17,6 +17,11 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.dead = false;
         this.immovable = true;
         this.on('animationcomplete', this.animationComplete, this);
+
+        scene.physics.add.collider(this, scene.ball, null, null, scene);
+        scene.physics.add.overlap(this, scene.player, this.playerHitCallback, null, scene);
+        scene.physics.add.overlap(this, scene.weapon.bullets, this.enemyHitCallback, null, scene);
+        scene.physics.add.collider(this, scene.enemies, this.enemyOverlapEnemyCallback, null, scene);
     }
 
     moveToTarget (target) {
@@ -46,7 +51,31 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
             scene.physics.add.collider(options.collisionTarget, enemy);
         }
         
+        scene.zombiegrunt.play();
         return enemy;
+    }
+
+    playerHitCallback(enemy, player) {
+        if (!player.immune) {
+            player.immune = true;
+            player.health -= 1; // can change to enemy damage value later
+            // update health bar
+            player.updateHealthBar();
+            player.scene.zombiepunch.play();
+
+            // Cant seem to find an easy way to do this
+            player.body.checkCollision.none = true;
+            player.alpha = 0.25;
+
+            // set up immunity, this doesn't seem right
+            this.scene.scene.time.delayedCall(player.immuneTime, (p) => {
+                p.immune = false;
+                player.alpha = 1;
+
+                // reset body physics
+                p.body.checkCollision.none = false;
+            }, [player], this);
+        }
     }
     
     enemyHitCallback (enemyHit, bulletHit) {
@@ -59,7 +88,12 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
 
         if (enemyHit.health <= 0) {
             enemyHit.dead = true;
+            this.scene.scene.updateScore(1);
+            enemyHit.scene.spawnHeart(enemyHit.x, enemyHit.y);
         }
+
+        // play the bullet hit sound
+        enemyHit.scene.fleshwound.play();
     }
 
     enemyOverlapEnemyCallback (enemy1, enemy2) {
@@ -68,7 +102,18 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
         // check if distance < desiredSeperation
         // if true, get normailsed distance set distance = distance * desired * smoothingValue
         // enem1.x += distance.x, enemy1.y +=distance.y AND enemy2.x -= distance.x enemy2.y -= distance.y
-        
+        let desiredSeperation = 2;
+        let smoothingValue = 0.2;
+
+        let distance = Math.sqrt(Math.pow(enemy1.x - enemy2.x, 2) + Math.pow(enemy1.y - enemy2.y, 2))
+        if (distance < desiredSeperation) {
+            let normDist = distance / 2; // don't think this is right
+            enemy1.x += normDist * smoothingValue * distance;
+            enemy1.y += normDist * smoothingValue * distance;
+            
+            enemy1.x -= normDist * smoothingValue * distance;
+            enemy1.y -= normDist * smoothingValue * distance;
+        }        
     }
 
     update (target, time, scene) {
@@ -87,8 +132,7 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
             this.anims.play('zombie3_death', true);
         }
 
-        scene.physics.add.overlap(this, scene.weapon.bullets, this.enemyHitCallback, null, scene);
-        scene.physics.add.collider(this, scene.enemies, this.enemyOverlapEnemyCallback, null, scene);
+
     }
 
     // This method is called whenver an animation is ended for an enemy.

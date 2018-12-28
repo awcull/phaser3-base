@@ -13,8 +13,13 @@ class Spawner {
         this.lowerInterval = spawnerOptions.lowerInterval;
         this.upperInterval = spawnerOptions.upperInterval;
         this.maxObjects = spawnerOptions.maxObjects || 15;
+        
         this.lastSpawn = 0;
         this.spawnOptions = spawnOptions || {};
+        this.isRandom = spawnerOptions.isRandom || false;
+        this.maxWidth = spawnerOptions.maxWidth || 0;
+        this.maxHeight = spawnerOptions.maxHeight || 0;
+        this.continousSpawn = spawnerOptions.continousSpawn || false;
 
         if (!this.lowerInterval) {
             this.lowerInterval = this.upperInterval || 5000;
@@ -32,10 +37,16 @@ class Spawner {
     spawn (time) {
         let interval = Math.floor(Math.random() * (this.upperInterval - this.lowerInterval + 1)) + this.lowerInterval;
 
-        if (this.enabled && this.entities.length < this.maxObjects && (time - this.lastSpawn) > interval) {
+        if ((this.enabled && this.entities.length < this.maxObjects && (time - this.lastSpawn) > interval) || (this.continousSpawn && this.entities.length == 0)) {
             this.lastSpawn = time;
+            if (!this.isRandom) {
+                this.entities.push(this.entity.spawn(this.spawnOptions, this.scene, this.x, this.y, this.texture));
+            } else {
+                let rngX = Math.floor(Math.random() * this.maxWidth);
+                let rngY = Math.floor(Math.random() * this.maxHeight);
 
-            this.entities.push(this.entity.spawn(this.spawnOptions, this.scene, this.x, this.y, this.texture));
+                this.entities.push(this.entity.spawn(this.spawnOptions, this.scene, rngX, rngY, this.texture));
+            }
         }
 
         // remove entities that have been marked as destroyed
@@ -47,6 +58,12 @@ class Spawner {
                 this.lastSpawn = time;
             }
         });
+    }
+
+    addObject(x, y) {
+        if (this.enabled && this.entities.length < this.maxObjects) {
+            this.entities.push(this.entity.spawn(this.spawnOptions, this.scene, x, y, this.texture));
+        }
     }
 }
 
